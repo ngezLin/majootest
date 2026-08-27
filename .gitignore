@@ -1,0 +1,34 @@
+# Environment files
+.env
+*.env
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Binaries
+bin/
+dist/
+
+# PHP
+case2-php/vendor/
+case2-php/.env
+
+# SQLite test artifacts
+*.db
