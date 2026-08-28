@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./case2-php
+      dockerfile: Dockerfile
+    container_name: majoo_php_app
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      APP_KEY: base64:REPLACE_WITH_php_artisan_key_generate
+      APP_DEBUG: "true"
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: majoo_db
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      JWT_SECRET: REPLACE_WITH_php_artisan_jwt_secret
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - majoo_network
+
+  mysql:
+    image: mysql:8.0
+    container_name: majoo_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: majoo_db
+    ports:
+      - "3307:3306"
+    volumes:
+      - majoo_mysql_data:/var/lib/mysql
+      - ./case2-php/database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - majoo_network
+
+networks:
+  majoo_network:
+    driver: bridge
+
+volumes:
+  majoo_mysql_data:
