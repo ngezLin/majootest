@@ -18,7 +18,7 @@ Route::prefix('auth')->group(function () {
 });
 
 // Protected routes — require JWT + multi-tenancy middleware
-Route::middleware(['auth:api', MultiTenancyMiddleware::class])->group(function () {
+Route::middleware([MultiTenancyMiddleware::class])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
     // Merchant revenue report (default month: November)
