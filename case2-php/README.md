@@ -95,39 +95,60 @@ For dates with no transactions, the report shows `0` instead of omitting the dat
 
 ## Getting Started
 
-### Prerequisites
-- Docker + Docker Compose installed
+### Architecture & Prerequisites
+- **MySQL Database**: Runs in Docker on `localhost:3306` (configured via root `docker-compose.yml`)
+- **Laravel API**: Runs locally on your machine via PHP 8.2+ and Composer
 
-### 1. Setup
+---
 
+### Step 1: Start MySQL in Docker
+From the project root directory:
 ```bash
-cd D:\projects\majootest
-
-# Copy env
-cp case2-php/.env.example case2-php/.env
-```
-
-### 2. Start containers
-
-```bash
+# Start MySQL 8.0 container (auto-loads database/schema.sql seed data)
 docker compose up -d
 ```
+MySQL will be running on `127.0.0.1:3306` with database `reporting_db`.
 
-This will:
-- Start MySQL on port `3307` and load the schema + seed data automatically.
-- Build and start the PHP app on `http://localhost:8000`.
+---
 
-### 3. Run migrations (Users table + indexes)
-
+### Step 2: Configure Environment
+In `case2-php/`:
 ```bash
-docker exec majoo_php_app php artisan migrate
+cp .env.example .env
+```
+Ensure database credentials in `.env` point to localhost:
+```ini
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=reporting_db
+DB_USERNAME=root
+DB_PASSWORD=root
 ```
 
-### 4. Generate JWT secret
+---
 
+### Step 3: Install Dependencies & Run Migrations
+From `case2-php/`:
 ```bash
-docker exec majoo_php_app php artisan jwt:secret
+# Install PHP dependencies
+composer install
+
+# Generate application key & JWT secret
+php artisan key:generate
+php artisan jwt:secret
+
+# Run database migrations (creates Users table & adds performance indexes)
+php artisan migrate
 ```
+
+---
+
+### Step 4: Start Local Development Server
+```bash
+php artisan serve
+```
+The REST API will be available at **`http://127.0.0.1:8000`**.
 
 ---
 
