@@ -11,6 +11,40 @@ import (
 	"majootest/case2-go/internal/utils"
 )
 
+const swaggerHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Majoo Blog API - Swagger UI</title>
+  <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <style>
+    html { box-sizing: border-box; overflow-y: scroll; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+    .topbar { display: none; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = function() {
+      window.ui = SwaggerUIBundle({
+        url: "/openapi.yaml",
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        layout: "BaseLayout"
+      });
+    };
+  </script>
+</body>
+</html>`
+
 // RegisterRoutes attaches the application's HTTP routes to the Gin engine.
 func RegisterRoutes(
 	r *gin.Engine,
@@ -19,6 +53,17 @@ func RegisterRoutes(
 	postController *controllers.PostController,
 	commentController *controllers.CommentController,
 ) {
+	// Swagger UI & OpenAPI Specification routes
+	r.StaticFile("/openapi.yaml", "./docs/openapi.yaml")
+	r.GET("/docs", func(c *gin.Context) {
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(http.StatusOK, swaggerHTML)
+	})
+	r.GET("/", func(c *gin.Context) {
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(http.StatusOK, swaggerHTML)
+	})
+
 	r.GET("/health", func(c *gin.Context) {
 		utils.SendSuccess(c, http.StatusOK, "API is running smoothly", gin.H{
 			"status": "healthy",
