@@ -1,206 +1,58 @@
-# Test Case 2 — PHP Multi-Tenant Revenue Reporting Engine
+<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-A Laravel 11 REST API implementing JWT authentication, strict multi-tenancy enforcement, and daily revenue reporting with zero-fill for dates with no transactions.
+<p align="center">
+<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+</p>
 
----
+## About Laravel
 
-## Stack
+Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
-| Component | Technology |
-|---|---|
-| Framework | Laravel 11 |
-| PHP | 8.3 |
-| Authentication | `tymon/jwt-auth` v2 — JWT Bearer tokens |
-| Database | MySQL 8.0 (provided schema) |
-| Container | Docker (PHP-FPM + Nginx via Supervisord) |
+- [Simple, fast routing engine](https://laravel.com/docs/routing).
+- [Powerful dependency injection container](https://laravel.com/docs/container).
+- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
+- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
+- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
+- [Robust background job processing](https://laravel.com/docs/queues).
+- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
 
----
+Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
-## API Endpoints
+## Learning Laravel
 
-| Method | Endpoint | Auth | Description |
-|---|---|:---:|---|
-| `POST` | `/api/auth/login` | ❌ | Login and receive JWT token |
-| `POST` | `/api/auth/logout` | ✅ | Invalidate JWT token |
-| `GET` | `/api/merchant/report` | ✅ | Monthly revenue report for authenticated merchant |
-| `GET` | `/api/outlet/{id}/report` | ✅ | Monthly revenue report for a specific outlet |
+Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
 
-### Query Parameters (Report Endpoints)
+In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
 
-| Param | Type | Default | Description |
-|---|---|---|---|
-| `month` | int 1–12 | 11 (merchant) / 8 (outlet) | Report month |
-| `year` | int | current year | Report year |
-| `page` | int | 1 | Page number |
-| `per_page` | int (max 31) | 10 | Days per page |
+You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
 
----
+## Agentic Development
 
-## Architecture
-
-```
-HTTP Request
-     │
-     ▼
-[ JWT Middleware (auth:api) ]         — Verifies Bearer token
-     │
-     ▼
-[ MultiTenancyMiddleware ]             — Resolves merchant_id from JWT user_id
-     │                                   Injects it into request attributes
-     ▼
-[ Controller ]                         — Validates query params
-     │
-     ▼
-[ RevenueReportService ]               — Queries DB, zero-fills missing dates, paginates
-     │
-     ▼
-[ MySQL (Transactions table) ]         — Indexed on (merchant_id, created_at) and (outlet_id, created_at)
-```
-
-### Multi-Tenancy Implementation
-
-The `MultiTenancyMiddleware` enforces strict data isolation:
-
-1. Extracts `user_id` from the JWT payload.
-2. Looks up `Merchants WHERE user_id = ?` to resolve `merchant_id`.
-3. Injects `merchant_id` into `$request->attributes` — controllers **never trust URL/body input** for scoping.
-4. For outlet reports: verifies `Outlets WHERE id = ? AND merchant_id = <from token>` before querying.
-
-If the outlet doesn't belong to the authenticated merchant → `403 Forbidden`.
-
-### Zero-Fill Revenue Logic
-
-Revenue (Omzet) = `SUM(bill_total)` from `Transactions`.
-
-For dates with no transactions, the report shows `0` instead of omitting the date.
-
-**Implementation:**
-1. Query DB: `SELECT DATE(created_at), SUM(bill_total) GROUP BY DATE(created_at)` for the given month.
-2. Generate full month date range in PHP using `CarbonPeriod`.
-3. Merge: for each date, use DB value or `0` (zero-fill).
-4. Slice result with `array_slice` for pagination.
-
----
-
-## Indexing Strategy (Optimization)
-
-| Index | Table | Columns | Purpose |
-|---|---|---|---|
-| `idx_transactions_merchant_date` | Transactions | `(merchant_id, created_at)` | Merchant revenue queries — avoids full table scan |
-| `idx_transactions_outlet_date` | Transactions | `(outlet_id, created_at)` | Outlet revenue queries |
-| `idx_outlets_merchant` | Outlets | `(merchant_id)` | Multi-tenancy outlet ownership check |
-| `idx_merchants_user` | Merchants | `(user_id)` | JWT → merchant_id resolution on every request |
-
----
-
-## Getting Started
-
-### Architecture & Prerequisites
-- **MySQL Database**: Runs in Docker on `localhost:3306` (configured via root `docker-compose.yml`)
-- **Laravel API**: Runs locally on your machine via PHP 8.2+ and Composer
-
----
-
-### Step 1: Start MySQL in Docker
-From the project root directory:
-```bash
-# Start MySQL 8.0 container (auto-loads database/schema.sql seed data)
-docker compose up -d
-```
-MySQL will be running on `127.0.0.1:3306` with database `reporting_db`.
-
----
-
-### Step 2: Configure Environment
-In `case2-php/`:
-```bash
-cp .env.example .env
-```
-Ensure database credentials in `.env` point to localhost:
-```ini
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=reporting_db
-DB_USERNAME=root
-DB_PASSWORD=root
-```
-
----
-
-### Step 3: Install Dependencies & Run Migrations
-From `case2-php/`:
-```bash
-# Install PHP dependencies
-composer install
-
-# Generate application key & JWT secret
-php artisan key:generate
-php artisan jwt:secret
-
-# Run database migrations (creates Users table & adds performance indexes)
-php artisan migrate
-```
-
----
-
-### Step 4: Start Local Development Server
-```bash
-php artisan serve
-```
-The REST API will be available at **`http://127.0.0.1:8000`**.
-
----
-
-## Testing the API
-
-### Login (Merchant 1)
+Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
 
 ```bash
-curl -X POST http://localhost:8000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"merchant1@mail.com","password":"password123"}'
+composer require laravel/boost --dev
+
+php artisan boost:install
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "data": {
-    "token": "eyJ...",
-    "token_type": "Bearer",
-    "user": { "merchant_id": 1 }
-  }
-}
-```
+Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
 
-### Merchant Revenue Report (August)
+## Contributing
 
-```bash
-curl "http://localhost:8000/api/merchant/report?month=8&year=2026&page=1&per_page=10" \
-  -H "Authorization: Bearer eyJ..."
-```
+Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
 
-### Outlet Report (Outlet 1, August)
+## Code of Conduct
 
-```bash
-curl "http://localhost:8000/api/outlet/1/report?month=8&year=2026&page=1&per_page=10" \
-  -H "Authorization: Bearer eyJ..."
-```
+In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
 
-### Cross-Tenant Access (Merchant 1 trying Outlet 2 of Merchant 2)
+## Security Vulnerabilities
 
-```bash
-curl "http://localhost:8000/api/outlet/2/report?month=8&year=2026" \
-  -H "Authorization: Bearer eyJ..."
-# → 403 Forbidden
-```
+If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
 
----
+## License
 
-## Known Limitations & Future Improvements
-
-- **No token refresh endpoint** — for simplicity; production would add `POST /auth/refresh`.
-- **Zero-fill is done in PHP** — for a very large month range or many merchants, a MySQL recursive CTE date generator would be more efficient.
-- **No rate limiting** — production would add `throttle:api` middleware.
-- **SQLite fallback removed** — app targets MySQL only, matching the assessment schema.
+The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
