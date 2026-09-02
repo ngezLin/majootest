@@ -66,8 +66,19 @@ SELECT
     c.title,
     other_user.username AS chat_partner,
     cm.last_read_at,
-    COUNT(m.id) AS unread_message_count,
-    MAX(m.created_at) AS last_message_time
+    -- Count unread messages sent by others after last_read_at
+    (
+        SELECT COUNT(*) 
+        FROM `messages` m 
+        WHERE m.conversation_id = c.id 
+          AND m.sender_id != 1 
+          AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
+    ) AS unread_message_count,
+    -- Get latest message timestamp (falls back to conversation creation time)
+    COALESCE(
+        (SELECT MAX(created_at) FROM `messages` WHERE conversation_id = c.id),
+        c.created_at
+    ) AS last_message_time
 FROM `conversations` c
 INNER JOIN `conversation_members` cm 
     ON cm.conversation_id = c.id AND cm.user_id = 1
@@ -75,11 +86,6 @@ LEFT JOIN `conversation_members` other_cm
     ON other_cm.conversation_id = c.id AND other_cm.user_id != 1 AND c.is_group = FALSE
 LEFT JOIN `users` other_user 
     ON other_user.id = other_cm.user_id
-LEFT JOIN `messages` m 
-    ON m.conversation_id = c.id 
-   AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
-   AND m.sender_id != 1
-GROUP BY c.id, cm.user_id, other_user.id
 ORDER BY last_message_time DESC;
 
 -- ----------------------------------------------------------------------------
